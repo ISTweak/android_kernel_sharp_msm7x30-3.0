@@ -2133,6 +2133,7 @@ static int vid_dec_open_secure(struct inode *inode, struct file *file)
 {
 	int rc = 0;
 	struct video_client_ctx *client_ctx;
+	vcd_set_is_encoding(false);
 	mutex_lock(&vid_dec_device_p->lock);
 	rc = vid_dec_open_client(&client_ctx, VCD_CP_SESSION);
 	if (rc)
@@ -2159,6 +2160,7 @@ static int vid_dec_open(struct inode *inode, struct file *file)
 {
 	int rc = 0;
 	struct video_client_ctx *client_ctx;
+	vcd_set_is_encoding(false);
 	INFO("msm_vidc_dec: Inside %s()", __func__);
 	mutex_lock(&vid_dec_device_p->lock);
 	rc = vid_dec_open_client(&client_ctx, 0);
