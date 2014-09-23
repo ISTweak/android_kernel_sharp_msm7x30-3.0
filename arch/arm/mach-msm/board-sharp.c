@@ -174,6 +174,8 @@
     #define MSM_PMEM_ADSP_SIZE      0x3ABC000
 #elif defined(CONFIG_MACH_NNK) || defined(CONFIG_MACH_DECKARD_AF33)
     #define MSM_PMEM_ADSP_SIZE      0x32BC000
+#elif defined(CONFIG_MACH_DECKARD_AS36) || defined(CONFIG_MACH_DECKARD_AF30) || defined(CONFIG_MACH_DECKARD_AF21) || defined(CONFIG_MACH_KOH) || defined(CONFIG_MACH_LYNX_DC55) || defined(CONFIG_MACH_DECKARD_AF30) || defined(CONFIG_MACH_TGS)
+    #define MSM_PMEM_ADSP_SIZE      0x3500000
 #else
     #define MSM_PMEM_ADSP_SIZE      0x1E00000
 #endif /* defined(CONFIG_MACH_LYNX_DC60) || defined(CONFIG_MACH_NNK) || defined(CONFIG_MACH_DECKARD_AF33) */
@@ -3466,7 +3468,10 @@ static ssize_t shtps_tma_vkeys_show(struct kobject *kobj,
 		__stringify(EV_KEY) ":" __stringify(KEY_MENU)   CONFIG_SHTPS_TMA3XX_VIRTUAL_KEY_MENU
 	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME)   CONFIG_SHTPS_TMA3XX_VIRTUAL_KEY_HOME
 	":" __stringify(EV_KEY) ":" __stringify(KEY_BACK)   CONFIG_SHTPS_TMA3XX_VIRTUAL_KEY_BACK
+#if defined( CONFIG_MACH_DECKARD_AF21 )
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) CONFIG_SHTPS_TMA3XX_VIRTUAL_KEY_SEARCH
 	"\n");
+#endif	/* #if defined( CONFIG_MACH_DECKARD_AF21 ) */
 }
 
 static struct kobj_attribute shtps_tma_vkeys_attr = {
@@ -3493,6 +3498,17 @@ static struct msm_gpio shtps_spi_gpio_config_data[] = {
 	{ GPIO_CFG(118, 0, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL,   GPIO_CFG_2MA), "shtps_irq" },
 	{ GPIO_CFG( 55, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_6MA), "shtps_rst" },
 #if defined( CONFIG_SHTPS_TMA3XX_TMA340_003 )
+	{ GPIO_CFG(177, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_2MA), "shtps_vcpin"},
+#elif defined( CONFIG_MACH_DECKARD_AF20 ) || defined( CONFIG_MACH_DECKARD_AF21 )
+	{ GPIO_CFG( 95, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_2MA), "shtps_standby"  },
+	{ GPIO_CFG( 96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_4MA), "shtps_hssp_clk" },
+	{ GPIO_CFG( 97, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_4MA), "shtps_hssp_data"},
+	{ GPIO_CFG(177, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_2MA), "shtps_vcpin"},
+#elif defined( CONFIG_MACH_DECKARD_AF30 )
+	{ GPIO_CFG( 96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_4MA), "shtps_hssp_clk" },
+	{ GPIO_CFG( 97, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_4MA), "shtps_hssp_data"},
+	{ GPIO_CFG(177, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_2MA), "shtps_vcpin"},
+#elif defined( CONFIG_MACH_DECKARD_AS36 )
 	{ GPIO_CFG(177, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,   GPIO_CFG_2MA), "shtps_vcpin"},
 #endif	/* #if defined( CONFIG_SHTPS_TMA3XX_TMA340_003 ) */
 };
@@ -3817,19 +3833,30 @@ static struct msm_gpio qsd_spi_gpio_config_data[] = {
 	{ GPIO_CFG(48, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_miso" },
 #else
 #if defined( CONFIG_SHTPS_TMA3XX_TMA340_003 )
-	{ GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_clk" },
-	{ GPIO_CFG(47, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_mosi" },
-	{ GPIO_CFG(48, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_miso" },
-	{ GPIO_CFG(87, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_cs2" },
+{ GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_clk" },
+{ GPIO_CFG(47, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_mosi" },
+{ GPIO_CFG(48, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_miso" },
+{ GPIO_CFG(87, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_cs2" },
 #else /* #if defined( CONFIG_SHTPS_TMA3XX_TMA340_003 ) */
+#if defined(CONFIG_MACH_DECKARD_AF21)
+{ GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "spi_clk" },
+{ GPIO_CFG(47, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "spi_mosi" },
+{ GPIO_CFG(48, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "spi_miso" },
+{ GPIO_CFG(87, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "spi_cs2" },
+#else /* #if defined(CONFIG_MACH_DECKARD_AF21) */
 #if defined( CONFIG_SHTPS_SY3000_TM2179_001 )
-	{ GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA), "spi_clk" },
+{ GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA), "spi_clk" },
 #else
-	{ GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_6MA), "spi_clk" },
+{ GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_6MA), "spi_clk" },
 #endif /* #if defined( CONFIG_SHTPS_SY3000_TM2179_001 ) */
-	{ GPIO_CFG(87, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_6MA), "spi_cs2" },
-	{ GPIO_CFG(47, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_6MA), "spi_mosi" },
-	{ GPIO_CFG(48, 1, GPIO_CFG_INPUT,  GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), "spi_miso" },
+{ GPIO_CFG(47, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_6MA), "spi_mosi" },
+#if defined( CONFIG_MACH_DECKARD_AF20 ) || defined( CONFIG_MACH_DECKARD_AS36 ) || defined( CONFIG_MACH_DECKARD_AF30 )
+{ GPIO_CFG(48, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_miso" },
+#else
+{ GPIO_CFG(48, 1, GPIO_CFG_INPUT,  GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), "spi_miso" },
+#endif	/* #if defined( CONFIG_MACH_DECKARD_AF20 ) || defined( CONFIG_MACH_DECKARD_AS36 ) || defined( CONFIG_MACH_DECKARD_AF30 ) */
+{ GPIO_CFG(87, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_6MA), "spi_cs2" },
+#endif /* #if defined(CONFIG_MACH_DECKARD_AF21) */
 #endif /* #if defined( CONFIG_SHTPS_TMA3XX_TMA340_003 ) */
 #endif /* #if !defined( CONFIG_TOUCHSCREEN_SHTPS ) */
 };

@@ -725,6 +725,38 @@ config MACH_NNK
 	help
 	  Support for Sharp Nanako.
 
+config MACH_DECKARD_AS32
+	depends on ARCH_MSM7X30
+	depends on !MSM_STACKED_MEMORY
+	default n
+	bool "SHARP DECKARD AS32"
+	help
+	  Support for Sharp Deckard AS32.
+
+config MACH_DECKARD_AS35
+	depends on ARCH_MSM7X30
+	depends on !MSM_STACKED_MEMORY
+	default n
+	bool "SHARP DECKARD AS35"
+	help
+	  Support for Sharp Deckard AS35.
+
+config MACH_DECKARD_AF30
+	depends on ARCH_MSM7X30
+	depends on !MSM_STACKED_MEMORY
+	default n
+	bool "SHARP DECKARD AF30"
+	help
+	  Support for Sharp Deckard AF30.
+
+config MACH_DECKARD_AF21
+	depends on ARCH_MSM7X30
+	depends on !MSM_STACKED_MEMORY
+	default n
+	bool "SHARP DECKARD AF21"
+	help
+	  Support for Sharp Deckard AF21.
+
 endmenu
 
 config MSM_STACKED_MEMORY

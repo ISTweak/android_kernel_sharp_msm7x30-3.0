@@ -59,6 +59,11 @@
 #include <linux/wakelock.h>
 #endif	/* FACETOUCH_DETECT_ENABLE */
 
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+	#include <linux/input/mt.h>
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
+
 /*+-------------------------------------------------------------------------+*/
 /*|	Constant declaration													|*/
 /*+-------------------------------------------------------------------------+*/
@@ -640,7 +645,11 @@ printk(KERN_DEBUG "[ShSpiTpsIF]TpsIf_Poll NULL\n");
 }
 #endif	/* TPS_TPCT_COMMAND */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+static long TpsIf_Ioctl(struct file *poFile, unsigned int wCmd, unsigned long dwArg)
+#else
 static int TpsIf_Ioctl(struct inode *pINode, struct file *poFile, unsigned int wCmd, unsigned long dwArg)
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 {
 	int nResult = -EINVAL;
 
@@ -686,7 +695,11 @@ static const struct file_operations goTpsIf_Fops =
 {
 	.owner	= THIS_MODULE,
 	.open	= TpsIf_Open,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+	.unlocked_ioctl = TpsIf_Ioctl,
+#else
 	.ioctl	= TpsIf_Ioctl,
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 #ifdef TPS_TPCT_COMMAND
 	.read	= TpsIf_Read,
 	.poll	= TpsIf_Poll,
@@ -1028,7 +1041,7 @@ MODULE_ALIAS("platform:SH_touchpanel");
 
 
 /* Structure for SPI driver call */
-static struct spi_driver goSpiTpsDriver =
+static struct spi_driver goSpiTps_driver =
 {
 	.driver =
 	{
@@ -1048,7 +1061,7 @@ printk(KERN_DEBUG "[ShSpiTps]Init\n");
 #endif	/* TPS_PRNLOG */
 
 	/* SPI driver use start */
-	return spi_register_driver(&goSpiTpsDriver);
+	return spi_register_driver(&goSpiTps_driver);
 }
 
 static void __exit ShSpiTps_Exit(void)
@@ -1058,7 +1071,7 @@ printk(KERN_DEBUG "[ShSpiTps]Exit\n");
 #endif	/* TPS_PRNLOG */
 
 	/* SPI driver use end */
-	spi_unregister_driver(&goSpiTpsDriver);
+	spi_unregister_driver(&goSpiTps_driver);
 }
 
 static int __devinit ShSpiTps_Probe(struct spi_device *spi)
@@ -1147,7 +1160,11 @@ printk(KERN_DEBUG "[ShSpiTps]shswic_get_usb_port_status err\n");
 	poSpiTpsRec->polling_timer.function = ShSpiTps_Polling_Timer_Function;
 	INIT_WORK(&poSpiTpsRec->polling_work, ShSpiTps_Work_Pollf);
 	/* Semaphore initialization */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+	sema_init(&sem, 1);
+#else
 	init_MUTEX(&sem);
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 
 	/* getting the top address that structs of common SMEM */
 	sh_smem_common_ptr = sh_smem_get_common_address();
@@ -1231,6 +1248,10 @@ printk(KERN_DEBUG "[ShSpiTps]Connect2InputSys\n");
 		if(input_register_device(poSpiTpsRec->mpoInDev) != 0)
 		{
 			dev_err(poDev, "Failed to register with input system\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+			input_mt_destroy_slots(poSpiTpsRec->mpoInDev);
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
+
 			input_free_device(poSpiTpsRec->mpoInDev);
 		}
 	}
@@ -1261,6 +1282,27 @@ printk(KERN_DEBUG "[ShSpiTps]CreateInputDev\n");
     	__set_bit(KEY_HOME,   pInDev->keybit);
     	__set_bit(KEY_BACK,   pInDev->keybit);
     	__set_bit(KEY_SEARCH, pInDev->keybit);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+		__set_bit(INPUT_PROP_DIRECT, pInDev->propbit);
+		
+		input_set_drvdata(pInDev, poSpiTpsRec);
+
+		input_mt_init_slots(pInDev, 16);
+
+		if(pInDev->mt == NULL){
+			dev_err(poDev, "Failed to initialize input_mt_slot\n");
+			return NULL;
+		}
+		input_set_abs_params(pInDev, ABS_MT_POSITION_X,  0, SH_TOUCH_LCD_MAX_X, 0, 0);
+		input_set_abs_params(pInDev, ABS_MT_POSITION_Y,  0, SH_TOUCH_LCD_MAX_Y, 0, 0);
+
+	#ifdef FACETOUCH_DETECT_ENABLE
+		input_set_abs_params(pInDev, ABS_MT_TOUCH_MAJOR, 0, SHTPS_FINGER_WIDTH_PALMDET, 0, 0);
+	#else
+		input_set_abs_params(pInDev, ABS_MT_TOUCH_MAJOR, 0, SH_TOUCH_MAX_DIAGONAL, 0, 0);
+	#endif	/* FACETOUCH_DETECT_ENABLE */
+
+#else
 		__set_bit(ABS_MT_TOUCH_MAJOR, pInDev->absbit);
 		__set_bit(ABS_MT_POSITION_X, pInDev->absbit);
 		__set_bit(ABS_MT_POSITION_Y, pInDev->absbit);
@@ -1281,6 +1323,7 @@ printk(KERN_DEBUG "[ShSpiTps]CreateInputDev\n");
 #else
 		input_set_abs_params(pInDev, ABS_MT_WIDTH_MAJOR, 0, SH_TOUCH_MAX_DIAGONAL, 0, 0);
 #endif	/* FACETOUCH_DETECT_ENABLE */
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 	}
 	else
 	{
@@ -1700,11 +1743,16 @@ static void ShSpiTps_TouchCheck(SpiTpsRec *poSpiTpsRec)
 			printk(KERN_DEBUG "[Tps]Force Toutch Up  (%d,%4d,%4d,%4d)\n", gPrev[0].mbID, gPrev[0].mwPosX, gPrev[0].mwPosY, gPrev[0].mwPosZ);
 #endif	/* TPS_EVENTLOG */
 			/* notice of the previous Information */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+			input_mt_slot(pInDev, 0);
+			input_mt_report_slot_state(pInDev, MT_TOOL_FINGER, false);
+#else
 			input_report_abs(pInDev, ABS_MT_TOUCH_MAJOR, 0); 
 			input_report_abs(pInDev, ABS_MT_POSITION_X,  gPrev[0].mwPosX);
 			input_report_abs(pInDev, ABS_MT_POSITION_Y,  gPrev[0].mwPosY);
 			input_report_abs(pInDev, ABS_MT_WIDTH_MAJOR, gPrev[0].mwPosZ);
 			input_mt_sync(pInDev);
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 			input_sync(pInDev);
 			/* clearing management information */
 			gPrev[0].mbID = 0xff;
@@ -2349,8 +2397,10 @@ printk(KERN_DEBUG "[ShSpiTps]Set ChargerArmor(%d)\n", poSpiTpsRec->mbIsChargerAr
 		ShSpiTps_SetChargerArmor(poSpiTpsRec);
 	}
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0))
 	/* wakeup set */
 	set_irq_type(MSM_GPIO_TO_INT(poSpiTpsRec->mnIrqPin), IRQF_TRIGGER_FALLING);
+#endif /* #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)) */
 	/* Registering interrupt handler */
 	nResult = request_irq(MSM_GPIO_TO_INT(poSpiTpsRec->mnIrqPin), &ShSpiTps_IrqHandler,
 					 IRQF_TRIGGER_FALLING | IRQF_DISABLED,
@@ -3598,11 +3648,19 @@ printk(KERN_DEBUG "[ShSpiTps]ShSpiTps_PosSet(%d)\n", nCnt);
 printk(KERN_DEBUG "[Tps]DRAG(%d:%d %d,%4d,%4d,%4d)\n", nI, nJ, poEv[nJ].mbID, poEv[nJ].mwPosX, poEv[nJ].mwPosY, poEv[nJ].mwPosZ);
 #endif	/* TPS_EVENTLOG */
 					/* updating the coordinate */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+					input_mt_slot(pInDev, poEv[nJ].mbID);
+					input_mt_report_slot_state(pInDev, MT_TOOL_FINGER, true);
+					input_report_abs(pInDev, ABS_MT_POSITION_X,  poEv[nJ].mwPosX);
+					input_report_abs(pInDev, ABS_MT_POSITION_Y,  poEv[nJ].mwPosY);
+					input_report_abs(pInDev, ABS_MT_TOUCH_MAJOR, poEv[nJ].mwPosZ);
+#else
 					input_report_abs(pInDev, ABS_MT_TOUCH_MAJOR, 100); 
 					input_report_abs(pInDev, ABS_MT_POSITION_X,  poEv[nJ].mwPosX);
 					input_report_abs(pInDev, ABS_MT_POSITION_Y,  poEv[nJ].mwPosY);
 					input_report_abs(pInDev, ABS_MT_WIDTH_MAJOR, poEv[nJ].mwPosZ);
 					input_mt_sync(pInDev);
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 					/* updating the management information */
 					gPrev[nI].mbID = poEv[nJ].mbID;
 					gPrev[nI].mwPosX = poEv[nJ].mwPosX;
@@ -3625,11 +3683,16 @@ printk(KERN_DEBUG "[Tps]DRAG(%d:%d %d,%4d,%4d,%4d)\n", nI, nJ, poEv[nJ].mbID, po
 printk(KERN_DEBUG "[Tps]UP  (%d:- %d,%4d,%4d,%4d)\n", nI, gPrev[nI].mbID, gPrev[nI].mwPosX, gPrev[nI].mwPosY, gPrev[nI].mwPosZ);
 #endif	/* TPS_EVENTLOG */
 				/* notice of the previous Information */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+				input_mt_slot(pInDev, gPrev[nI].mbID);
+				input_mt_report_slot_state(pInDev, MT_TOOL_FINGER, false);
+#else
 				input_report_abs(pInDev, ABS_MT_TOUCH_MAJOR, 0); 
 				input_report_abs(pInDev, ABS_MT_POSITION_X,  gPrev[nI].mwPosX);
 				input_report_abs(pInDev, ABS_MT_POSITION_Y,  gPrev[nI].mwPosY);
 				input_report_abs(pInDev, ABS_MT_WIDTH_MAJOR, gPrev[nI].mwPosZ);
 				input_mt_sync(pInDev);
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 				/* clearing management information */
 				gPrev[nI].mbID = 0xff;
 				gPrev[nI].mwPosX = 0xffff;
@@ -3681,11 +3744,19 @@ printk(KERN_DEBUG "[Tps](%d<-%d)\n", nI, nJ);
 printk(KERN_DEBUG "[Tps]DOWN(%d:%d %d,%4d,%4d,%4d)\n", nI, nJ, poEv[nJ].mbID, poEv[nJ].mwPosX, poEv[nJ].mwPosY, poEv[nJ].mwPosZ);
 #endif	/* TPS_EVENTLOG */
 					/* updating the coordinate */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+					input_mt_slot(pInDev, poEv[nJ].mbID);
+					input_mt_report_slot_state(pInDev, MT_TOOL_FINGER, true);
+					input_report_abs(pInDev, ABS_MT_POSITION_X,  poEv[nJ].mwPosX);
+					input_report_abs(pInDev, ABS_MT_POSITION_Y,  poEv[nJ].mwPosY);
+					input_report_abs(pInDev, ABS_MT_TOUCH_MAJOR, poEv[nJ].mwPosZ);
+#else
 					input_report_abs(pInDev, ABS_MT_TOUCH_MAJOR, 100); 
 					input_report_abs(pInDev, ABS_MT_POSITION_X,  poEv[nJ].mwPosX);
 					input_report_abs(pInDev, ABS_MT_POSITION_Y,  poEv[nJ].mwPosY);
 					input_report_abs(pInDev, ABS_MT_WIDTH_MAJOR, poEv[nJ].mwPosZ);
 					input_mt_sync(pInDev);
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)) */
 					/* updating the management information */
 					gPrev[nI].mbID = poEv[nJ].mbID;
 					gPrev[nI].mwPosX = poEv[nJ].mwPosX;

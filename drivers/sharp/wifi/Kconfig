@@ -24,7 +24,7 @@ config SHWLAN_BCM4330_1
 	  Enable BCM4330 WiFi device driver.
 
 if SHWLAN_BCM4330_1 = y
-	source "broadcom/5.90_1/bcmdhd/Kconfig"
+	source "drivers/sharp/wifi/broadcom/5.90_1/bcmdhd/Kconfig"
 endif #SHWLAN_BCM4330_1
 
 config SHWLAN_CFG80211
