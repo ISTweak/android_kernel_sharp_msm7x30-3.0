@@ -25,7 +25,6 @@
 #include <linux/ashmem.h>
 #include <linux/major.h>
 #include <linux/ion.h>
-#include <mach/socinfo.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -405,6 +404,10 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 			INIT_COMPLETION(device->hwaccess_gate);
 			device->ftbl->suspend_context(device);
 			device->ftbl->stop(device);
+			if (device->idle_wakelock.name)
+				wake_unlock(&device->idle_wakelock);
+			pm_qos_update_request(&device->pm_qos_req_dma,
+						PM_QOS_DEFAULT_VALUE);
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
 			break;
 		case KGSL_STATE_SLUMBER:
@@ -514,8 +517,8 @@ void kgsl_late_resume_driver(struct early_suspend *h)
 					struct kgsl_device, display_off);
 	KGSL_PWR_WARN(device, "late resume start\n");
 	mutex_lock(&device->mutex);
-	kgsl_pwrctrl_wake(device);
 	device->pwrctrl.restore_slumber = 0;
+	kgsl_pwrctrl_wake(device);
 	kgsl_pwrctrl_pwrlevel_change(device, KGSL_PWRLEVEL_TURBO);
 	mutex_unlock(&device->mutex);
 	kgsl_check_idle(device);
@@ -1522,11 +1525,8 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 	struct scatterlist *s;
 	unsigned long flags;
 
-	if (kgsl_ion_client == NULL) {
-		kgsl_ion_client = msm_ion_client_create(UINT_MAX, KGSL_NAME);
-		if (kgsl_ion_client == NULL)
-			return -ENODEV;
-	}
+	if (IS_ERR_OR_NULL(kgsl_ion_client))
+		return -ENODEV;
 
 	handle = ion_import_fd(kgsl_ion_client, fd);
 	if (IS_ERR_OR_NULL(handle))
@@ -1656,10 +1656,20 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	kgsl_check_idle(dev_priv->device);
 	return result;
 
- error_put_file_ptr:
-	if (entry->priv_data)
-		fput(entry->priv_data);
-
+error_put_file_ptr:
+	switch (entry->memtype) {
+	case KGSL_MEM_ENTRY_PMEM:
+	case KGSL_MEM_ENTRY_ASHMEM:
+		if (entry->priv_data)
+			fput(entry->priv_data);
+		break;
+	case KGSL_MEM_ENTRY_ION:
+		ion_unmap_dma(kgsl_ion_client, entry->priv_data);
+		ion_free(kgsl_ion_client, entry->priv_data);
+		break;
+	default:
+		break;
+	}
 error:
 	kfree(entry);
 	kgsl_check_idle(dev_priv->device);
@@ -1916,7 +1926,7 @@ static const struct {
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	struct kgsl_device_private *dev_priv = filep->private_data;
-	unsigned int nr;
+	unsigned int nr = _IOC_NR(cmd);
 	kgsl_ioctl_func_t func;
 	int lock, ret;
 	char ustack[64];
@@ -1931,8 +1941,6 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		cmd = IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP;
 	else if (cmd == IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_OLD)
 		cmd = IOCTL_KGSL_CMDSTREAM_READTIMESTAMP;
-
-	nr = _IOC_NR(cmd);
 
 	if (cmd & (IOC_IN | IOC_OUT)) {
 		if (_IOC_SIZE(cmd) < sizeof(ustack))
@@ -1959,19 +1967,6 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 	if (nr < ARRAY_SIZE(kgsl_ioctl_funcs) &&
 	    kgsl_ioctl_funcs[nr].func != NULL) {
-
-		/*
-		 * Make sure that nobody tried to send us a malformed ioctl code
-		 * with a valid NR but bogus flags
-		 */
-
-		if (kgsl_ioctl_funcs[nr].cmd != cmd) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Malformed ioctl code %08x\n", cmd);
-			ret = -ENOIOCTLCMD;
-			goto done;
-		}
-
 		func = kgsl_ioctl_funcs[nr].func;
 		lock = kgsl_ioctl_funcs[nr].lock;
 	} else {
@@ -2151,8 +2146,8 @@ void kgsl_unregister_device(struct kgsl_device *device)
 	kgsl_cffdump_close(device->id);
 	kgsl_pwrctrl_uninit_sysfs(device);
 
-	if (cpu_is_msm8x60())
-		wake_lock_destroy(&device->idle_wakelock);
+	wake_lock_destroy(&device->idle_wakelock);
+	pm_qos_remove_request(&device->pm_qos_req_dma);
 
 	idr_destroy(&device->context_idr);
 
@@ -2243,9 +2238,9 @@ kgsl_register_device(struct kgsl_device *device)
 	if (ret != 0)
 		goto err_close_mmu;
 
-	if (cpu_is_msm8x60())
-		wake_lock_init(&device->idle_wakelock,
-					   WAKE_LOCK_IDLE, device->name);
+	wake_lock_init(&device->idle_wakelock, WAKE_LOCK_IDLE, device->name);
+	pm_qos_add_request(&device->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
+				PM_QOS_DEFAULT_VALUE);
 
 	idr_init(&device->context_idr);
 
@@ -2290,6 +2285,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 	status = kgsl_pwrctrl_init(device);
 	if (status)
 		goto error;
+
+	kgsl_ion_client = msm_ion_client_create(UINT_MAX, KGSL_NAME);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   device->iomemname);
