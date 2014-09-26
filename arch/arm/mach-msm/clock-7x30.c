@@ -1253,7 +1253,8 @@ static struct clk_freq_tbl clk_tbl_grp[] = {
 	F_BASIC(147456000, pll3,  5),
 	F_BASIC(184320000, pll3,  4),
 	F_BASIC(192000000, pll1,  4),
-	F_BASIC(245760000, pll3,  3),
+	F_BASIC(249600000, pll3,  3),
+	F_BASIC(328800000, pll3,  3),
 	/* Sync to AXI. Hence this "rate" is not fixed. */
 	F_RAW(1, &lpxo_clk.c, 0, BIT(14), 0, 0, NULL),
 	F_END,
@@ -1276,7 +1277,7 @@ static struct rcg_clk grp_2d_clk = {
 	.c = {
 		.dbg_name = "grp_2d_clk",
 		.ops = &clk_ops_rcg_7x30,
-		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 245760000),
+		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 328800000),
 		CLK_INIT(grp_2d_clk.c),
 		.depends = &axi_grp_2d_clk.c,
 	},
@@ -1296,7 +1297,7 @@ static struct rcg_clk grp_3d_src_clk = {
 	.c = {
 		.dbg_name = "grp_3d_src_clk",
 		.ops = &clk_ops_rcg_7x30,
-		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 245760000),
+		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 328800000),
 		CLK_INIT(grp_3d_src_clk.c),
 		.depends = &axi_li_grp_clk.c,
 	},
