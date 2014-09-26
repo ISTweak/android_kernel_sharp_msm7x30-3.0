@@ -426,7 +426,8 @@ static void setup_cpufreq_table(void)
 	unsigned i = 0;
 	const struct clkctl_acpu_speed *speed;
 #ifdef CONFIG_SHSYS_CUST
-	u8 pll2_l = readl_relaxed(PLL2_L_VAL_ADDR) & 0xFF;
+	u8 pll2_l;
+	pll2_l = readl_relaxed(PLL2_L_VAL_ADDR) & 0xFF;
 #endif /* CONFIG_SHSYS_CUST */
 
 	for (speed = acpu_freq_tbl; speed->acpu_clk_khz; speed++) {

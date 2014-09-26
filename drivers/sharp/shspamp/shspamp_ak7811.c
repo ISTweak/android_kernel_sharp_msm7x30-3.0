@@ -239,7 +239,7 @@ static void shspamp_i2c_exit(void)
 
 static int shspamp_setMute(u8 val)
 {
-	int	retVal;
+	int	retVal = 0;
 	int	gpioVal;
 	u8	setVal;
 	
