@@ -108,6 +108,11 @@ struct msm_sh_spitps_platform_data {
 #define TPSDEV_TOUCHINFO_MODE_LCDSIZE	0
 #define TPSDEV_TOUCHINFO_MODE_DEVSIZE	1
 
+#ifdef CONFIG_MACH_DECKARD_AF21
+#define TPS_POSITION_OPEN	0
+#define TPS_POSITION_CLOSE	1
+#endif
+
 struct shtps_touch_info {
 	struct fingers{
 		unsigned char	id;
@@ -146,5 +151,8 @@ void msm_spitps_flipchange(int nFlipState);
 void msm_tps_setsleep(int nIsSleep);
 void msm_tps_shutdown(void);
 void msm_tps_set_chargerarmor(int nMode);
+#ifdef CONFIG_MACH_DECKARD_AF21
+void shtps_setFlipInformation(int state);
+#endif
 
 #endif /* __SHTPS_TMA3XX_TMA340_005_H__ */
