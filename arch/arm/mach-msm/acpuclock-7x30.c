@@ -55,6 +55,8 @@
 #define VDD_RAW(mv) (((MV(mv) / V_STEP) - 30) | VREG_DATA)
 
 #define MAX_AXI_KHZ 192000
+#define SH_ACPU_MIN_UV_MV 800U
+#define SH_ACPU_MAX_UV_MV 1500U
 
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
@@ -92,6 +94,12 @@ static struct pll pll2_tbl[] = {
 	{  53, 1, 3, 0 }, /* 1024 MHz */
 	{ 125, 0, 1, 1 }, /* 1200 MHz */
 	{  73, 0, 1, 0 }, /* 1401 MHz */
+	{  78, 1, 3, 0 }, /* 1516 MHz */
+	{  83, 1, 3, 0 }, /* 1612 MHz */
+	{  88, 1, 3, 0 }, /* 1708 MHz */
+	{  93, 1, 3, 0 }, /* 1804 MHz */
+	{  98, 1, 3, 0 }, /* 1900 MHz */
+	{ 103, 1, 3, 0 }, /* 2016 MHz */
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -115,38 +123,24 @@ static struct clk *acpuclk_sources[MAX_SOURCE];
  * know all the h/w requirements.
  */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-#ifdef CONFIG_SHSYS_CUST_MSMC2_1100_MV
 	{ 0, 24576,  LPXO,     0, 0,  30720000,  1000, VDD_RAW(1000) },
 	{ 0, 61440,  PLL_3,    5, 11, 61440000,  1000, VDD_RAW(1000) },
-	{ 1, 122880, PLL_3,    5, 5,  61440000,  1000, VDD_RAW(1000) },
+	{ 1,  122880, PLL_3, 5, 5,  61440000, 1000, VDD_RAW(950) },
 	{ 0, 184320, PLL_3,    5, 4,  61440000,  1000, VDD_RAW(1000) },
 	{ 0, MAX_AXI_KHZ, AXI, 1, 0, 61440000, 1000, VDD_RAW(1000) },
-	{ 1, 245760, PLL_3,    5, 2,  61440000,  1000, VDD_RAW(1000) },
-	{ 1, 368640, PLL_3,    5, 1,  122800000, 1050, VDD_RAW(1050) },
-	/* AXI has MSMC1 implications. See above. */
+	{ 1,  245760, PLL_3, 5, 2,  61440000, 1000, VDD_RAW(975) },
+	{ 1,  368640, PLL_3, 5, 1, 122800000, 1050, VDD_RAW(1000) },
 	{ 1, 768000, PLL_1,    2, 0,  153600000, 1100, VDD_RAW(1100) },
-#else  /* CONFIG_SHSYS_CUST_MSMC2_1100_MV */
-	{ 0, 24576,  LPXO,     0, 0,  30720000,  900, VDD_RAW(900) },
-	{ 0, 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
-	{ 1, 122880, PLL_3,    5, 5,  61440000,  900, VDD_RAW(900) },
-	{ 0, 184320, PLL_3,    5, 4,  61440000,  900, VDD_RAW(900) },
-	{ 0, MAX_AXI_KHZ, AXI, 1, 0, 61440000, 900, VDD_RAW(900) },
-	{ 1, 245760, PLL_3,    5, 2,  61440000,  900, VDD_RAW(900) },
-	{ 1, 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(900) },
-	/* AXI has MSMC1 implications. See above. */
-	{ 1, 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
-#endif /* CONFIG_SHSYS_CUST_MSMC2_1100_MV */
-	/*
-	 * AXI has MSMC1 implications. See above.
-	 */
-#ifndef CONFIG_SHSYS_CUST
-	{ 1, 806400,  PLL_2, 3, 0, UINT_MAX, 1100, VDD_RAW(1100), &pll2_tbl[0]},
-#else  /* CONFIG_SHSYS_CUST */
 	{ 0, 806400,  PLL_2, 3, 0, UINT_MAX, 1100, VDD_RAW(1100), &pll2_tbl[0]},
-#endif /* CONFIG_SHSYS_CUST */
 	{ 1, 1024000, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[1]},
 	{ 1, 1200000, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[2]},
 	{ 1, 1401600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[3]},
+	{ 1, 1516800, PLL_2, 3, 0,  UINT_MAX, 1300, VDD_RAW(1300), &pll2_tbl[4]},
+	{ 1, 1612800, PLL_2, 3, 0,  UINT_MAX, 1300, VDD_RAW(1300), &pll2_tbl[5]},
+	{ 1, 1708800, PLL_2, 3, 0,  UINT_MAX, 1350, VDD_RAW(1350), &pll2_tbl[6]},
+	{ 1, 1804800, PLL_2, 3, 0,  UINT_MAX, 1400, VDD_RAW(1400), &pll2_tbl[7]},
+	{ 1, 1900800, PLL_2, 3, 0,  UINT_MAX, 1450, VDD_RAW(1450), &pll2_tbl[8]},
+	{ 1, 2016000, PLL_2, 3, 0,  UINT_MAX, 1450, VDD_RAW(1450), &pll2_tbl[9]},
 	{ 0 }
 };
 
@@ -435,15 +429,8 @@ static void setup_cpufreq_table(void)
 	u8 pll2_l = readl_relaxed(PLL2_L_VAL_ADDR) & 0xFF;
 #endif /* CONFIG_SHSYS_CUST */
 
-	for (speed = acpu_freq_tbl; speed->acpu_clk_khz; speed++){
-		if(speed->use_for_scaling){
-#ifdef CONFIG_SHSYS_CUST
-			if(pll2_l == PLL2_1024_MHZ) {
-				if(speed->acpu_clk_khz > 1024000){
-					break;
-				}
-			}
-#endif /* CONFIG_SHSYS_CUST */
+	for (speed = acpu_freq_tbl; speed->acpu_clk_khz; speed++) {
+		if (speed->use_for_scaling) {
 			cpufreq_tbl[i].index = i;
 			cpufreq_tbl[i].frequency = speed->acpu_clk_khz;
 			i++;
@@ -470,8 +457,10 @@ void __init pll2_fixup(void)
 		if (speed->src != PLL_2)
 			backup_s = speed;
 		if (speed->pll_rate && speed->pll_rate->l == pll2_l) {
+#if 0
 			speed++;
 			speed->acpu_clk_khz = 0;
+#endif
 			return;
 		}
 	}
