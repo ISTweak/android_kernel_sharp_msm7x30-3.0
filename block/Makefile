@@ -11,6 +11,7 @@ obj-$(CONFIG_BLK_DEV_BSG)	+= bsg.o
 obj-$(CONFIG_BLK_CGROUP)	+= blk-cgroup.o
 obj-$(CONFIG_BLK_DEV_THROTTLING)	+= blk-throttle.o
 obj-$(CONFIG_IOSCHED_BFQ)	+= bfq-iosched.o
+obj-$(CONFIG_IOSCHED_FIFO)	+= fifo-iosched.o
 obj-$(CONFIG_IOSCHED_NOOP)	+= noop-iosched.o
 obj-$(CONFIG_IOSCHED_ROW)	+= row-iosched.o
 obj-$(CONFIG_IOSCHED_SIO)       += sio-iosched.o
