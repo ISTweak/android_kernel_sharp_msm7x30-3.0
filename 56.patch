@@ -1,0 +1,235 @@
+diff -urN linux-3.0.55/Makefile linux-3.0.56/Makefile
+--- linux-3.0.55/Makefile	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/Makefile	2012-12-11 03:45:23.000000000 +0900
+@@ -1,6 +1,6 @@
+ VERSION = 3
+ PATCHLEVEL = 0
+-SUBLEVEL = 55
++SUBLEVEL = 56
+ EXTRAVERSION =
+ NAME = Sneaky Weasel
+ 
+diff -urN linux-3.0.55/arch/arm/mach-dove/include/mach/pm.h linux-3.0.56/arch/arm/mach-dove/include/mach/pm.h
+--- linux-3.0.55/arch/arm/mach-dove/include/mach/pm.h	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/arch/arm/mach-dove/include/mach/pm.h	2012-12-11 03:45:23.000000000 +0900
+@@ -45,7 +45,7 @@
+ 
+ static inline int irq_to_pmu(int irq)
+ {
+-	if (IRQ_DOVE_PMU_START < irq && irq < NR_IRQS)
++	if (IRQ_DOVE_PMU_START <= irq && irq < NR_IRQS)
+ 		return irq - IRQ_DOVE_PMU_START;
+ 
+ 	return -EINVAL;
+diff -urN linux-3.0.55/arch/arm/mach-dove/irq.c linux-3.0.56/arch/arm/mach-dove/irq.c
+--- linux-3.0.55/arch/arm/mach-dove/irq.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/arch/arm/mach-dove/irq.c	2012-12-11 03:45:23.000000000 +0900
+@@ -61,8 +61,20 @@
+ 	int pin = irq_to_pmu(d->irq);
+ 	u32 u;
+ 
++	/*
++	 * The PMU mask register is not RW0C: it is RW.  This means that
++	 * the bits take whatever value is written to them; if you write
++	 * a '1', you will set the interrupt.
++	 *
++	 * Unfortunately this means there is NO race free way to clear
++	 * these interrupts.
++	 *
++	 * So, let's structure the code so that the window is as small as
++	 * possible.
++	 */
+ 	u = ~(1 << (pin & 31));
+-	writel(u, PMU_INTERRUPT_CAUSE);
++	u &= readl_relaxed(PMU_INTERRUPT_CAUSE);
++	writel_relaxed(u, PMU_INTERRUPT_CAUSE);
+ }
+ 
+ static struct irq_chip pmu_irq_chip = {
+diff -urN linux-3.0.55/block/scsi_ioctl.c linux-3.0.56/block/scsi_ioctl.c
+--- linux-3.0.55/block/scsi_ioctl.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/block/scsi_ioctl.c	2012-12-11 03:45:23.000000000 +0900
+@@ -722,11 +722,14 @@
+ 		break;
+ 	}
+ 
++	if (capable(CAP_SYS_RAWIO))
++		return 0;
++
+ 	/* In particular, rule out all resets and host-specific ioctls.  */
+ 	printk_ratelimited(KERN_WARNING
+ 			   "%s: sending ioctl %x to a partition!\n", current->comm, cmd);
+ 
+-	return capable(CAP_SYS_RAWIO) ? 0 : -ENOTTY;
++	return -ENOTTY;
+ }
+ EXPORT_SYMBOL(scsi_verify_blk_ioctl);
+ 
+diff -urN linux-3.0.55/drivers/acpi/processor_driver.c linux-3.0.56/drivers/acpi/processor_driver.c
+--- linux-3.0.55/drivers/acpi/processor_driver.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/drivers/acpi/processor_driver.c	2012-12-11 03:45:23.000000000 +0900
+@@ -409,6 +409,7 @@
+ 		acpi_bus_generate_proc_event(device, event, 0);
+ 		acpi_bus_generate_netlink_event(device->pnp.device_class,
+ 						  dev_name(&device->dev), event, 0);
++		break;
+ 	default:
+ 		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+ 				  "Unsupported event [0x%x]\n", event));
+diff -urN linux-3.0.55/drivers/gpu/drm/i915/intel_lvds.c linux-3.0.56/drivers/gpu/drm/i915/intel_lvds.c
+--- linux-3.0.55/drivers/gpu/drm/i915/intel_lvds.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/drivers/gpu/drm/i915/intel_lvds.c	2012-12-11 03:45:23.000000000 +0900
+@@ -759,6 +759,22 @@
+ 			DMI_MATCH(DMI_BOARD_NAME, "ZBOXSD-ID12/ID13"),
+ 		},
+ 	},
++	{
++		.callback = intel_no_lvds_dmi_callback,
++		.ident = "Gigabyte GA-D525TUD",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "Gigabyte Technology Co., Ltd."),
++			DMI_MATCH(DMI_BOARD_NAME, "D525TUD"),
++		},
++	},
++	{
++		.callback = intel_no_lvds_dmi_callback,
++		.ident = "Supermicro X7SPA-H",
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "Supermicro"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "X7SPA-H"),
++		},
++	},
+ 
+ 	{ }	/* terminating entry */
+ };
+diff -urN linux-3.0.55/kernel/sched_autogroup.c linux-3.0.56/kernel/sched_autogroup.c
+--- linux-3.0.55/kernel/sched_autogroup.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/kernel/sched_autogroup.c	2012-12-11 03:45:23.000000000 +0900
+@@ -160,15 +160,11 @@
+ 
+ 	p->signal->autogroup = autogroup_kref_get(ag);
+ 
+-	if (!ACCESS_ONCE(sysctl_sched_autogroup_enabled))
+-		goto out;
+-
+ 	t = p;
+ 	do {
+ 		sched_move_task(t);
+ 	} while_each_thread(p, t);
+ 
+-out:
+ 	unlock_task_sighand(p, &flags);
+ 	autogroup_kref_put(prev);
+ }
+diff -urN linux-3.0.55/kernel/sched_autogroup.h linux-3.0.56/kernel/sched_autogroup.h
+--- linux-3.0.55/kernel/sched_autogroup.h	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/kernel/sched_autogroup.h	2012-12-11 03:45:23.000000000 +0900
+@@ -1,11 +1,6 @@
+ #ifdef CONFIG_SCHED_AUTOGROUP
+ 
+ struct autogroup {
+-	/*
+-	 * reference doesn't mean how many thread attach to this
+-	 * autogroup now. It just stands for the number of task
+-	 * could use this autogroup.
+-	 */
+ 	struct kref		kref;
+ 	struct task_group	*tg;
+ 	struct rw_semaphore	lock;
+diff -urN linux-3.0.55/kernel/workqueue.c linux-3.0.56/kernel/workqueue.c
+--- linux-3.0.55/kernel/workqueue.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/kernel/workqueue.c	2012-12-11 03:45:23.000000000 +0900
+@@ -2044,8 +2044,10 @@
+ repeat:
+ 	set_current_state(TASK_INTERRUPTIBLE);
+ 
+-	if (kthread_should_stop())
++	if (kthread_should_stop()) {
++		__set_current_state(TASK_RUNNING);
+ 		return 0;
++	}
+ 
+ 	/*
+ 	 * See whether any cpu is asking for help.  Unbounded
+diff -urN linux-3.0.55/mm/memory-failure.c linux-3.0.56/mm/memory-failure.c
+--- linux-3.0.55/mm/memory-failure.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/mm/memory-failure.c	2012-12-11 03:45:23.000000000 +0900
+@@ -1382,9 +1382,17 @@
+ {
+ 	int ret;
+ 	unsigned long pfn = page_to_pfn(page);
++	struct page *hpage = compound_trans_head(page);
+ 
+ 	if (PageHuge(page))
+ 		return soft_offline_huge_page(page, flags);
++	if (PageTransHuge(hpage)) {
++		if (PageAnon(hpage) && unlikely(split_huge_page(hpage))) {
++			pr_info("soft offline: %#lx: failed to split THP\n",
++				pfn);
++			return -EBUSY;
++		}
++	}
+ 
+ 	ret = get_any_page(page, pfn, flags);
+ 	if (ret < 0)
+diff -urN linux-3.0.55/mm/sparse.c linux-3.0.56/mm/sparse.c
+--- linux-3.0.55/mm/sparse.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/mm/sparse.c	2012-12-11 03:45:23.000000000 +0900
+@@ -619,7 +619,7 @@
+ {
+ 	return; /* XXX: Not implemented yet */
+ }
+-static void free_map_bootmem(struct page *page, unsigned long nr_pages)
++static void free_map_bootmem(struct page *memmap, unsigned long nr_pages)
+ {
+ }
+ #else
+@@ -660,10 +660,11 @@
+ 			   get_order(sizeof(struct page) * nr_pages));
+ }
+ 
+-static void free_map_bootmem(struct page *page, unsigned long nr_pages)
++static void free_map_bootmem(struct page *memmap, unsigned long nr_pages)
+ {
+ 	unsigned long maps_section_nr, removing_section_nr, i;
+ 	unsigned long magic;
++	struct page *page = virt_to_page(memmap);
+ 
+ 	for (i = 0; i < nr_pages; i++, page++) {
+ 		magic = (unsigned long) page->lru.next;
+@@ -712,13 +713,10 @@
+ 	 */
+ 
+ 	if (memmap) {
+-		struct page *memmap_page;
+-		memmap_page = virt_to_page(memmap);
+-
+ 		nr_pages = PAGE_ALIGN(PAGES_PER_SECTION * sizeof(struct page))
+ 			>> PAGE_SHIFT;
+ 
+-		free_map_bootmem(memmap_page, nr_pages);
++		free_map_bootmem(memmap, nr_pages);
+ 	}
+ }
+ 
+diff -urN linux-3.0.55/net/ipv4/route.c linux-3.0.56/net/ipv4/route.c
+--- linux-3.0.55/net/ipv4/route.c	2012-12-06 11:40:31.000000000 +0900
++++ linux-3.0.56/net/ipv4/route.c	2012-12-11 03:45:23.000000000 +0900
+@@ -1374,6 +1374,7 @@
+ 	struct rtable *rt = (struct rtable *) dst;
+ 	__be32 orig_gw = rt->rt_gateway;
+ 	struct neighbour *n, *old_n;
++	struct hh_cache *old_hh;
+ 
+ 	dst_confirm(&rt->dst);
+ 
+@@ -1381,6 +1382,9 @@
+ 	n = __arp_bind_neighbour(&rt->dst, rt->rt_gateway);
+ 	if (IS_ERR(n))
+ 		return PTR_ERR(n);
++	old_hh = xchg(&rt->dst.hh, NULL);
++	if (old_hh)
++		hh_cache_put(old_hh);
+ 	old_n = xchg(&rt->dst._neighbour, n);
+ 	if (old_n)
+ 		neigh_release(old_n);
