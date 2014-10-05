@@ -8234,3 +8234,13 @@ MACHINE_START(NNK, "SHARP NNK")
 	.handle_irq = vic_handle_irq,
 MACHINE_END
 
+MACHINE_START(DECKARD_AF21, "SHARP DECKARD AF21")
+    .boot_params = PHYS_OFFSET + 0x100,
+    .map_io = msm7x30_map_io,
+	.reserve = msm7x30_reserve,
+	.init_irq = msm7x30_init_irq,
+	.init_machine = msm7x30_init,
+	.timer = &msm_timer,
+	.init_early = msm7x30_init_early,
+	.handle_irq = vic_handle_irq,
+MACHINE_END

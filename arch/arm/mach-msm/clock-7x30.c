@@ -2231,6 +2231,12 @@ static struct branch_clk mfc_div2_clk = {
 };
 
 static struct clk_freq_tbl clk_tbl_spi[] = {
+#if defined( CONFIG_MACH_DECKARD_AF20 ) || defined( CONFIG_MACH_DECKARD_AS36 ) || defined( CONFIG_MACH_DECKARD_AF30 ) || defined( CONFIG_MACH_DECKARD_AF21 )
+	F_MND8(  400000, 19, 12, lpxo, 1,   2,   123),
+#if defined( CONFIG_SHLCDC_SUBDISPLAY )
+    F_MND8( 4006957, 19, 12, pll3, 4,   1,    46),
+#endif
+#else
 	F_MND8(       0,  0,  0, gnd,  1,   0,     0),
 #if defined( CONFIG_SHTPS_TMA3XX_TMA340_003 )
 	F_MND8(  400000, 19, 12, lpxo, 1,   2,   123),
@@ -2240,6 +2246,7 @@ static struct clk_freq_tbl clk_tbl_spi[] = {
 #endif /* #if defined( CONFIG_SHTPS_SY3X00_DEV ) */
 	F_MND8( 9963243, 19, 12, pll3, 4,   2,    37),
 	F_MND8(24576000, 19, 12, lpxo, 1,   0,     0),
+#endif	/* #if defined( CONFIG_MACH_DECKARD_AF20 ) || defined( CONFIG_MACH_DECKARD_AS36 ) || defined( CONFIG_MACH_DECKARD_AF30 ) || defined( CONFIG_MACH_DECKARD_AF21 ) */
 	F_MND8(26331429, 19, 12, pll3, 4,   1,     7),
 	F_END,
 };
