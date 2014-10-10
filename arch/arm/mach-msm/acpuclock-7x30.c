@@ -500,6 +500,11 @@ static int __init acpuclk_7x30_init(struct acpuclk_soc_data *soc_data)
 	populate_plls();
 	acpuclk_hw_init();
 	lpj_init();
+#ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
+	acpuclk_7x30_set_rate(0, CONFIG_MSM_CPU_FREQ_MAX, SETRATE_INIT);
+#else
+	acpuclk_7x30_set_rate(0, 1401600, SETRATE_INIT);
+#endif
 	setup_cpufreq_table();
 	acpuclk_register(&acpuclk_7x30_data);
 
