@@ -1095,8 +1095,6 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 	__raw_writel(value, reg);
 }
 
-<<<<<<< HEAD
-=======
 static int adreno_next_event(struct kgsl_device *device,
 	struct kgsl_event *event)
 {
@@ -1138,14 +1136,12 @@ static int adreno_next_event(struct kgsl_device *device,
 			cmds[1] = 0;
 
 			adreno_ringbuffer_issuecmds(device,
-					adreno_dev->drawctxt_active,
 					KGSL_CMD_FLAGS_NONE, &cmds[0], 2);
 		}
 	}
 	return status;
 }
 
->>>>>>> d0214a4... msm: kgsl: Prevent missing servicing of events waiting on timestamps
 static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 					unsigned int timestamp)
 {
